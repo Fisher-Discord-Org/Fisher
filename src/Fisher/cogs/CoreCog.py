@@ -1,11 +1,12 @@
 from importlib import import_module
-from importlib.metadata import distributions
+from importlib.metadata import packages_distributions
 
-from discord import Colour, Embed, Interaction, Locale, app_commands
+from discord import Colour, Interaction, Locale, app_commands
 
 from ..core.exceptions import CommandArgumentError, FisherExitCommand
-from ..core.Fisher import Fisher, FisherCog
+from ..core.Fisher import Fisher, FisherCog, logger
 from ..utils.discord_utils import is_owner
+from ..utils.view import PaginationEmbed
 
 
 class CoreCog(
@@ -99,7 +100,7 @@ class CoreCog(
     @app_commands.guilds(Fisher.config.DEV_GUILD_ID)
     @is_owner()
     async def sync_command(
-        self, interaction: Interaction, guild_id: int | None = None
+        self, interaction: Interaction, guild_id: str | None = None
     ) -> None:
         await interaction.response.defer(ephemeral=True)
         if guild_id is None:
@@ -109,7 +110,9 @@ class CoreCog(
                 ephemeral=True,
             )
             return
-        guild = self.bot.get_guild(guild_id)
+        if not guild_id.isdigit():
+            raise CommandArgumentError(status_code=400, detail="Invalid guild ID.")
+        guild = self.bot.get_guild(int(guild_id))
         if not guild:
             raise CommandArgumentError(status_code=400, detail="Invalid guild ID.")
         await self.bot.tree.sync(guild=guild)
@@ -175,29 +178,41 @@ class CoreCog(
     @is_owner()
     async def list_cog(self, interaction: Interaction, option: str = "enabled"):
         await interaction.response.defer(ephemeral=True)
-        embed = Embed(title=f"Cog List ({option})", color=Colour.dark_blue())
+        embed = PaginationEmbed(title=f"Cog List ({option})", color=Colour.dark_blue())
         if option == "enabled":
             for cog_name, cog in self.bot.cogs.items():
                 embed.add_field(name=cog_name, value=cog.description, inline=False)
-        else:
-            extensions = [
-                dist for dist in distributions() if dist.name.startswith("Fisher")
-            ]
-            for extension in extensions:
-                module = import_module(".cogs", package=extension.name)
-                cogs = [cog for cog in dir(module) if not cog.startswith("__")]
-                for cog in cogs:
-                    cog_class = getattr(module, cog)
-                    if (
-                        isinstance(cog_class, FisherCog)
-                        and cog_class.__cog_name__ not in self.bot.cogs
-                    ):
-                        embed.add_field(
-                            name=cog_class.__cog_name__,
-                            value=cog_class.__cog_description__,
-                            inline=False,
-                        )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(
+                embed=embed.initial_embed, view=embed, ephemeral=True
+            )
+            return
+
+        distributions_packages = self.__distributions_packages()
+        for dist in distributions_packages:
+            for package in distributions_packages[dist]:
+                try:
+                    module = import_module(".cogs", package=package)
+                    cogs = [cog for cog in dir(module) if not cog.startswith("__")]
+                    for cog in cogs:
+                        cog_class = getattr(module, cog)
+                        if (
+                            issubclass(cog_class, FisherCog)
+                            and cog_class.__cog_name__ not in self.bot.cogs
+                        ):
+                            embed.add_field(
+                                name=cog_class.__cog_name__,
+                                value=f"""
+                                dist: `{dist}`
+                                package: `{package}.cogs.{cog_class.__name__}`
+                                description: {cog_class.__cog_description__}
+                                """,
+                                inline=False,
+                            )
+                except ImportError:
+                    logger.warning(f"Skipping {package} due to ImportError.")
+        await interaction.followup.send(
+            embed=embed.initial_embed, view=embed, ephemeral=True
+        )
 
     @app_commands.command(
         name="enable",
@@ -232,7 +247,6 @@ class CoreCog(
         },
     )
     @app_commands.describe(cog_name="additional cog you want to enable")
-    @app_commands.choices(cog_name=[app_commands.Choice(name="lc", value="leetcode")])
     @is_owner()
     async def enable_cog(self, interaction: Interaction, cog_name: str):
         await interaction.response.defer(ephemeral=True)
@@ -240,34 +254,14 @@ class CoreCog(
             raise CommandArgumentError(
                 status_code=400, detail=f"Cog `{cog_name}` is already enabled."
             )
-        match_found = False
-        extensions = [
-            dist for dist in distributions() if dist.name.startswith("Fisher")
-        ]
-        try:
-            for extension in extensions:
-                module = import_module(".cogs", package=extension.name)
-                cogs = [cog for cog in dir(module) if not cog.startswith("__")]
-                for cog in cogs:
-                    cog_class = getattr(module, cog)
-                    if (
-                        isinstance(cog_class, FisherCog)
-                        and cog_class.__cog_name__ == cog_name
-                    ):
-                        await self.bot.add_cog(cog_class(self.bot))
-                        match_found = True
-                        await interaction.followup.send(
-                            f"Cog `{cog_name}` has been enabled.", ephemeral=True
-                        )
-                        return
-        except Exception as e:
-            raise e
-
-        if not match_found:
+        if not await self.__load_cog(cog_name):
             raise CommandArgumentError(
-                status_code=400,
-                detail=f"Cog `{cog_name}` does not exist.",
+                status_code=400, detail=f"Cog `{cog_name}` does not exist."
             )
+
+        await interaction.followup.send(
+            f"Cog `{cog_name}` has been enabled.", ephemeral=True
+        )
 
     @app_commands.command(
         name="disable",
@@ -365,6 +359,53 @@ class CoreCog(
                 status_code=400,
                 detail="Cog `core` cannot be reloaded. Please restart the bot to reload the core cog.",
             )
+
+        await self.bot.remove_cog(cog_name)
+
+        if not await self.__load_cog(cog_name):
+            raise CommandArgumentError(
+                status_code=400, detail=f"Cog `{cog_name}` does not exist."
+            )
+
         await interaction.followup.send(
             f"Cog `{cog_name}` has been reloaded.", ephemeral=True
         )
+
+    def __distributions_packages(self, prefix: str = "fisher-"):
+        distributions_packages = {}
+        for package, distributions in packages_distributions().items():
+            for distribution in distributions:
+                if not distribution.lower().startswith(prefix):
+                    continue
+                if distribution not in distributions_packages:
+                    distributions_packages[distribution] = []
+                distributions_packages[distribution].append(package)
+        return distributions_packages
+
+    async def __load_cog(self, cog_name: str) -> bool:
+        distributions_packages = self.__distributions_packages()
+        for distribution in distributions_packages:
+            for package in distributions_packages[distribution]:
+                try:
+                    module = import_module(".cogs", package=package)
+                except ImportError:
+                    logger.warning(f"Skipping {package} due to ImportError.")
+                    continue
+                cogs = [cog for cog in dir(module) if not cog.startswith("__")]
+                for cog in cogs:
+                    cog_class = getattr(module, cog)
+                    if (
+                        issubclass(cog_class, FisherCog)
+                        and cog_class.__cog_name__ == cog_name
+                    ):
+                        try:
+                            await self.bot.add_cog(cog_class(self.bot))
+                            return True
+                        except Exception as e:
+                            logger.error(f"Failed to load cog [{cog_name}]")
+                            logger.exception(f"{type(e).__name__}: {e}")
+                            raise CommandArgumentError(
+                                status_code=500,
+                                detail=f"Cog `{cog_name}` found but failed to load due to an internal error.",
+                            )
+        return False
