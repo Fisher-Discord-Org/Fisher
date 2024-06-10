@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from inspect import getmembers
 from typing import TYPE_CHECKING
 
 from discord import app_commands
@@ -23,16 +22,10 @@ class FisherCog(Cog):
         self.requires_db = requires_db
 
     async def cog_load(self) -> None:
-        commands_queue = getmembers(
-            self,
-            lambda x: isinstance(x, app_commands.Command)
-            or isinstance(x, app_commands.Group),
-        )
-        for _, node in commands_queue:
+        commands_queue = self.get_app_commands()
+        for node in commands_queue:
             if isinstance(node, app_commands.Group):
-                commands_queue.extend(
-                    [(command.name, command) for command in node.commands]
-                )
+                commands_queue.extend(node.commands)
                 await self._register_group_corpus(node)
             elif isinstance(node, app_commands.Command):
                 await self._register_command_corpus(node)
