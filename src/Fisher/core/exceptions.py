@@ -7,6 +7,14 @@ class UserNotOwner(errors.CheckFailure):
         super().__init__(self.message)
 
 
+class NotEnoughPermissions(errors.CheckFailure):
+    def __init__(
+        self, message="You do not have enough permissions to use this command."
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
 class UserBlackListed(errors.CheckFailure):
     def __init__(self, message="You are blacklisted from using the bot."):
         self.message = message

@@ -1,7 +1,7 @@
 import discord
 from discord import Interaction, app_commands
 
-from ..core.exceptions import UserNotOwner
+from ..core.exceptions import NotEnoughPermissions, UserNotOwner
 
 
 def is_owner():
@@ -9,6 +9,17 @@ def is_owner():
         if interaction.user.id not in interaction.client.config.OWNERS:
             raise UserNotOwner
         return True
+
+    return app_commands.check(predicate)
+
+
+def is_guild_admin():
+    def predicate(interaction: Interaction) -> bool:
+        if interaction.user.guild_permissions.administrator:
+            return True
+        raise NotEnoughPermissions(
+            "You need to have administrator permissions to use this command."
+        )
 
     return app_commands.check(predicate)
 
