@@ -169,7 +169,7 @@ class Fisher(discord.Client, metaclass=SingletonMeta):
         self.status_task.stop()
 
         logger.info("Cleaning up cogs...")
-        for cog in self.__cogs:
+        for cog in list(self.__cogs.keys()):
             try:
                 await self.remove_cog(cog)
             except Exception as e:
