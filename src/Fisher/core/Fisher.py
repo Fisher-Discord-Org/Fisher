@@ -168,6 +168,14 @@ class Fisher(discord.Client, metaclass=SingletonMeta):
         self.status_task.cancel()
         self.status_task.stop()
 
+        logger.info("Cleaning up cogs...")
+        for cog in self.__cogs:
+            try:
+                await self.remove_cog(cog)
+            except Exception as e:
+                logger.error(f"Error occurred while removing cog {cog}.")
+                logger.exception(e)
+
         logger.info("Cleaning up db engines...")
         for engine in self.__db.values():
             await engine.db_engine.dispose()
