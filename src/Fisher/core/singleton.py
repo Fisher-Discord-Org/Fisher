@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Self
 from weakref import WeakValueDictionary
 
+from discord.ext.commands import CogMeta
+
 
 class SingletonMeta(type):
     _instances: WeakValueDictionary[type, SingletonMeta] = WeakValueDictionary()
@@ -18,3 +20,7 @@ class Singleton(metaclass=SingletonMeta):
     @classmethod
     def get_instance(cls: type[Self]) -> Self | None:
         return cls._instances.get(cls, None)
+
+
+class SingletonCogMeta(SingletonMeta, CogMeta):
+    pass
