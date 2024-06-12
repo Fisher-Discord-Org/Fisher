@@ -391,7 +391,9 @@ class CoreCog(
                 try:
                     module = import_module(".cogs", package=package)
                 except ImportError:
-                    logger.warning(f"Skipping {package} due to ImportError.")
+                    logger.warning(
+                        f"Skipping {package} from {distribution} due to ImportError."
+                    )
                     continue
                 cogs = [cog for cog in dir(module) if not cog.startswith("__")]
                 for cog in cogs:
