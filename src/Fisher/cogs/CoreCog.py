@@ -209,7 +209,9 @@ class CoreCog(
                                 inline=False,
                             )
                 except ImportError:
-                    logger.warning(f"Skipping {package} due to ImportError.")
+                    logger.warning(
+                        f"Skipping {package} from {dist} due to ImportError."
+                    )
         await interaction.followup.send(
             embed=embed.initial_embed, view=embed, ephemeral=True
         )
