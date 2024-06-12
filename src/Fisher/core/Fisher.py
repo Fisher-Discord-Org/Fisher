@@ -243,6 +243,15 @@ class Fisher(discord.Client, Singleton):
                 access_logger.info(
                     f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{interaction.command.name}\" {exception.status_code} \"{exception.detail}\""
                 )
+            elif isinstance(exception, app_commands.errors.CommandNotFound):
+                await reply(
+                    interaction,
+                    f"Command `{exception.name}` not found.\nIt is likely that the command is not available or the cog related to this command is not enabled.",
+                    ephemeral=True,
+                )
+                access_logger.info(
+                    f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{exception.name}\" 404 \"{type(exception).__name__}\""
+                )
             else:
                 await reply(interaction, "An internal error occurred.", ephemeral=True)
 
