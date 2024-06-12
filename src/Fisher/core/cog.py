@@ -9,13 +9,14 @@ from discord.ext.commands import Cog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
+from .singleton import Singleton
 from .translator import Corpus
 
 if TYPE_CHECKING:
     from .Fisher import Fisher
 
 
-class FisherCog(Cog):
+class FisherCog(Cog, Singleton):
     def __init__(self, bot: Fisher, requires_db: bool = False):
         self.bot = bot
         self.__corpus = Corpus()
