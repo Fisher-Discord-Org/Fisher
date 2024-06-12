@@ -26,23 +26,14 @@ from ..db.database import BaseEngine, SQLiteEngine
 from ..utils.discord_utils import reply
 from .cog import FisherCog
 from .exceptions import CommandArgumentError, FisherExitCommand
+from .singleton import Singleton
 from .translator import FisherTranslator
 
 logger = logging.getLogger("Fisher")
 access_logger = logging.getLogger("Fisher.access")
 
 
-class SingletonMeta(type):
-    _instances: dict[type, SingletonMeta] = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            instance = super().__call__(*args, **kwargs)
-            cls._instances[cls] = instance
-        return cls._instances[cls]
-
-
-class Fisher(discord.Client, metaclass=SingletonMeta):
+class Fisher(discord.Client, Singleton):
     config: BotSettings = bot_settings
     log_config: LogSettings = LogSettings()
     db_config: DBSettings = SQLiteSettings()
