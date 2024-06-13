@@ -426,6 +426,7 @@ class CoreCog(
             }
         },
     )
+    @is_owner()
     async def update_dist(self, interaction: Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         self.__update_distributions_packages()
