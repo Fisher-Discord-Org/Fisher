@@ -16,6 +16,11 @@ class CoreCog(
 ):
     def __init__(self, bot: Fisher) -> None:
         super().__init__(bot, requires_db=True)
+        self.__distributions_packages: dict[str, list[str]] = {}
+
+    async def cog_load(self) -> None:
+        await super().cog_load()
+        self.__update_distributions_packages()
 
     @app_commands.command(
         name="ping",
@@ -187,7 +192,7 @@ class CoreCog(
             )
             return
 
-        distributions_packages = self.__distributions_packages()
+        distributions_packages = self.__distributions_packages
         for dist in distributions_packages:
             for package in distributions_packages[dist]:
                 try:
@@ -215,6 +220,35 @@ class CoreCog(
         await interaction.followup.send(
             embed=embed.initial_embed, view=embed, ephemeral=True
         )
+
+    async def _cog_autocomplete(
+        self, interaction: Interaction, current: str
+    ) -> list[app_commands.Choice]:
+        distributions_packages = self.__distributions_packages
+        choices = []
+        for dist in distributions_packages:
+            for package in distributions_packages[dist]:
+                try:
+                    module = import_module(".cogs", package=package)
+                except ImportError:
+                    logger.warning(
+                        f"Skipping {package} from {dist} due to ImportError."
+                    )
+                    continue
+                cogs = [cog for cog in dir(module) if not cog.startswith("__")]
+                for cog in cogs:
+                    cog_class = getattr(module, cog)
+                    if (
+                        issubclass(cog_class, FisherCog)
+                        and current.lower() in cog_class.__cog_name__.lower()
+                    ):
+                        choices.append(
+                            app_commands.Choice(
+                                name=f"{cog_class.__cog_name__} ({dist})",
+                                value=cog_class.__cog_name__,
+                            )
+                        )
+        return choices[:25]
 
     @app_commands.command(
         name="enable",
@@ -249,6 +283,7 @@ class CoreCog(
         },
     )
     @app_commands.describe(cog_name="additional cog you want to enable")
+    @app_commands.autocomplete(cog_name=_cog_autocomplete)
     @is_owner()
     async def enable_cog(self, interaction: Interaction, cog_name: str):
         await interaction.response.defer(ephemeral=True)
@@ -373,7 +408,32 @@ class CoreCog(
             f"Cog `{cog_name}` has been reloaded.", ephemeral=True
         )
 
-    def __distributions_packages(self, prefix: str = "fisher-"):
+    @app_commands.command(
+        name="check_dist",
+        description="Check the current distributions packages and update the mapping of distributions packages",
+        extras={
+            "locale": {
+                "name": {
+                    Locale.american_english: "check_dist",
+                    Locale.british_english: "check_dist",
+                    Locale.chinese: "检查分发包",
+                },
+                "description": {
+                    Locale.american_english: "Check the current distributions packages and update the mapping of distributions packages",
+                    Locale.british_english: "Check the current distributions packages and update the mapping of distributions packages",
+                    Locale.chinese: "检查当前分发包并更新分发包与导入包的映射",
+                },
+            }
+        },
+    )
+    async def update_dist(self, interaction: Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        self.__update_distributions_packages()
+        await interaction.followup.send(
+            "Distributions packages mapping has been updated.", ephemeral=True
+        )
+
+    def __update_distributions_packages(self, prefix: str = "fisher-") -> None:
         distributions_packages = {}
         for package, distributions in packages_distributions().items():
             for distribution in distributions:
@@ -382,10 +442,10 @@ class CoreCog(
                 if distribution not in distributions_packages:
                     distributions_packages[distribution] = []
                 distributions_packages[distribution].append(package)
-        return distributions_packages
+        self.__distributions_packages = distributions_packages
 
     async def __load_cog(self, cog_name: str) -> bool:
-        distributions_packages = self.__distributions_packages()
+        distributions_packages = self.__distributions_packages
         for distribution in distributions_packages:
             for package in distributions_packages[distribution]:
                 try:
