@@ -300,6 +300,15 @@ class CoreCog(
             f"Cog `{cog_name}` has been enabled.", ephemeral=True
         )
 
+    async def _disable_cog_autocomplete(
+        self, interaction: Interaction, current: str
+    ) -> list[app_commands.Choice]:
+        return [
+            app_commands.Choice(name=cog_name, value=cog_name)
+            for cog_name in self.bot.cogs
+            if current.lower() in cog_name.lower()
+        ][:25]
+
     @app_commands.command(
         name="disable",
         description="Disable a cog",
@@ -333,6 +342,7 @@ class CoreCog(
         },
     )
     @app_commands.describe(cog_name="cog you want to disable")
+    @app_commands.autocomplete(cog_name=_disable_cog_autocomplete)
     @is_owner()
     async def disable_cog(self, interaction: Interaction, cog_name: str):
         await interaction.response.defer(ephemeral=True)
