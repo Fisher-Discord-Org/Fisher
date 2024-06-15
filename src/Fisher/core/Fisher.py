@@ -285,6 +285,11 @@ class Fisher(discord.Client, Singleton):
 
         logger.info("Bot is ready.")
 
+    async def on_error(self, event, *args, **kwargs):
+        logger.exception(f"Error occurred in event {event}.")
+        if self.dev_channel:
+            await self.dev_channel.send(f"Error occurred in event {event}.")
+
     @tasks.loop(minutes=30.0)
     async def status_task(self):
         try:
