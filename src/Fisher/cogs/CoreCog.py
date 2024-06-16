@@ -1,3 +1,4 @@
+from gc import collect as gc_collect
 from importlib import import_module
 from importlib.metadata import packages_distributions
 
@@ -360,6 +361,9 @@ class CoreCog(
             f"Cog `{cog_name}` has been disabled.", ephemeral=True
         )
 
+        object_count = gc_collect()
+        logger.info(f"Garbage collected {object_count} objects.")
+
     @app_commands.command(
         name="reload",
         description="Reload a cog",
@@ -408,6 +412,9 @@ class CoreCog(
             )
 
         await self.bot.remove_cog(cog_name)
+
+        object_count = gc_collect()
+        logger.info(f"Garbage collected {object_count} objects.")
 
         if not await self.__load_cog(cog_name):
             raise CommandArgumentError(
