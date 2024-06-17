@@ -42,8 +42,9 @@ class CoreCog(
         },
     )
     async def ping(self, interaction: Interaction) -> None:
-        await interaction.response.send_message(
-            f"Pong! Latency: {self.bot.latency * 1000:.2f}ms"
+        await interaction.response.defer(ephemeral=True)
+        await interaction.followup.send(
+            f"Pong! Latency: {self.bot.latency * 1000:.2f}ms", ephemeral=True
         )
 
     @app_commands.command(
