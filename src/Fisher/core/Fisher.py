@@ -4,6 +4,7 @@ import asyncio
 import logging
 import logging.config
 from collections.abc import Coroutine
+from functools import partial as func_partial
 from os import name as OS_NAME
 from platform import python_version, release, system
 from random import choice
@@ -135,9 +136,24 @@ class Fisher(discord.Client, Singleton):
             logger.info(f"Signal {Signals(sig).name} received.")
             self.event_loop.create_task(self.stop())
 
+        def loop_signal_handler(sig):
+            logger.info(f"Signal {Signals(sig).name} received.")
+            self.event_loop.create_task(self.stop())
+
         logger.info("Registering signal handlers for SIGINT and SIGTERM...")
-        signal(SIGINT, signal_handler)
-        signal(SIGTERM, signal_handler)
+        try:
+            self.event_loop.add_signal_handler(
+                SIGINT, func_partial(loop_signal_handler, SIGINT)
+            )
+            self.event_loop.add_signal_handler(
+                SIGTERM, func_partial(loop_signal_handler, SIGTERM)
+            )
+        except NotImplementedError:
+            logger.warning(
+                f"loop.add_signal_handler() is not implemented on {system()} {release()} ({OS_NAME}). Using signal module instead."
+            )
+            signal(SIGINT, signal_handler)
+            signal(SIGTERM, signal_handler)
 
     async def start(self):
         self.start_time = perf_counter()
