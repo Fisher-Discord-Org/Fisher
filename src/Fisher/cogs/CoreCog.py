@@ -197,6 +197,8 @@ class CoreCog(
         distributions_packages = self.__distributions_packages
         for dist in distributions_packages:
             for package in distributions_packages[dist]:
+                if package == "/":
+                    package = dist.replace("-", "_")
                 try:
                     module = import_module(".cogs", package=package)
                     cogs = [cog for cog in dir(module) if not cog.startswith("__")]
@@ -467,6 +469,8 @@ class CoreCog(
         distributions_packages = self.__distributions_packages
         for distribution in distributions_packages:
             for package in distributions_packages[distribution]:
+                if package == "/":
+                    package = distribution.replace("-", "_")
                 try:
                     module = import_module(".cogs", package=package)
                 except ImportError:
