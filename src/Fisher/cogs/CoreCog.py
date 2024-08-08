@@ -232,6 +232,8 @@ class CoreCog(
         choices = []
         for dist in distributions_packages:
             for package in distributions_packages[dist]:
+                if package == "/":
+                    package = dist.replace("-", "_")
                 try:
                     module = import_module(".cogs", package=package)
                 except ImportError:
