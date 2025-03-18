@@ -28,12 +28,10 @@ class BotSettings(BaseSettings):
     DEV_GUILD_ID: int | None = None
     OWNERS: list[int] = []
 
-    model_config = SettingsConfigDict(
-        env_prefix="BOT_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="BOT_", env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @property
-    def DEBUG(self) -> bool:
+    def debug(self) -> bool:
         return True if self.ENV == "dev" else False
 
 

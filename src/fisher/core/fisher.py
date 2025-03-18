@@ -3,15 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import logging.config
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Mapping, Sequence
 from functools import partial as func_partial
-from os import name as OS_NAME
+from os import name as os_name
 from platform import python_version, release, system
 from random import choice
 from signal import SIGINT, SIGTERM, Signals, signal
 from time import perf_counter
 from types import MappingProxyType
-from typing import Mapping, Optional, Sequence
 
 import discord
 from discord import app_commands
@@ -106,7 +105,7 @@ class Fisher(discord.Client, Singleton):
     def run(self):
         try:
             self.event_loop.run_until_complete(self.start())
-        except asyncio.CancelledError as e:
+        except asyncio.CancelledError:
             logger.info("All tasks are cancelled.")
         except Exception as e:
             logger.exception(f"{type(e).__name__}: {e}")
@@ -142,15 +141,12 @@ class Fisher(discord.Client, Singleton):
 
         logger.info("Registering signal handlers for SIGINT and SIGTERM...")
         try:
-            self.event_loop.add_signal_handler(
-                SIGINT, func_partial(loop_signal_handler, SIGINT)
-            )
-            self.event_loop.add_signal_handler(
-                SIGTERM, func_partial(loop_signal_handler, SIGTERM)
-            )
+            self.event_loop.add_signal_handler(SIGINT, func_partial(loop_signal_handler, SIGINT))
+            self.event_loop.add_signal_handler(SIGTERM, func_partial(loop_signal_handler, SIGTERM))
         except NotImplementedError:
             logger.warning(
-                f"loop.add_signal_handler() is not implemented on {system()} {release()} ({OS_NAME}). Using signal module instead."
+                f"loop.add_signal_handler() is not implemented on {system()} {release()} "
+                f"({os_name}). Using signal module instead."
             )
             signal(SIGINT, signal_handler)
             signal(SIGTERM, signal_handler)
@@ -164,7 +160,7 @@ class Fisher(discord.Client, Singleton):
         try:
             await super().start(self.config.TOKEN.get_secret_value())
         except Exception as e:
-            e.add_note(f"The above exception occurred during bot startup.")
+            e.add_note("The above exception occurred during bot startup.")
             raise
         await self.wait_for_termination()
 
@@ -202,7 +198,7 @@ class Fisher(discord.Client, Singleton):
         logger.info(f"Name: [{self.user.name}]")
         logger.info(f"discord.py API version: {discord.__version__}")
         logger.info(f"Python version: {python_version()}")
-        logger.info(f"Running on: {system()} {release()} ({OS_NAME})")
+        logger.info(f"Running on: {system()} {release()} ({os_name})")
         logger.info("".center(60, "-"))
 
         if self.config.USE_TRANSLATOR:
@@ -227,20 +223,20 @@ class Fisher(discord.Client, Singleton):
         self.status_task.start()
 
         @self.event
-        async def on_app_command_completion(
-            interaction: discord.Interaction, command: app_commands.Command
-        ):
+        async def on_app_command_completion(interaction: discord.Interaction, command: app_commands.Command):
             access_logger.info(
-                f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{interaction.command.name}\" 200 \"OK\""
+                f"{interaction.user} ({interaction.user.id}) - {
+                    f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'
+                } - {interaction.command.name} 200 OK"
             )
 
         @self.tree.error
-        async def on_app_command_error(
-            interaction: discord.Interaction, exception: Exception
-        ):
+        async def on_app_command_error(interaction: discord.Interaction, exception: Exception):
+            interaction_source = f"{interaction.guild.name} ({interaction.guild.id})" if interaction.guild else "DMs"
             if isinstance(exception, FisherExitCommand):
                 access_logger.info(
-                    f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{interaction.command.name}\" 200 \"OK\""
+                    f"{interaction.user} ({interaction.user.id}) - {interaction_source} - "
+                    f"{interaction.command.name} 200 OK"
                 )
                 logger.info("Exit command received.")
                 await self.stop()
@@ -252,27 +248,35 @@ class Fisher(discord.Client, Singleton):
                 )
                 await reply(interaction, message, ephemeral=True)
                 access_logger.info(
-                    f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{interaction.command.name}\" 403 \"CheckFailure\""
+                    f"{interaction.user} ({interaction.user.id}) - {interaction_source} - "
+                    f"{interaction.command.name} 403 CheckFailure"
                 )
             elif isinstance(exception, CommandArgumentError):
                 await reply(interaction, exception.detail, ephemeral=True)
                 access_logger.info(
-                    f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{interaction.command.name}\" {exception.status_code} \"{exception.detail}\""
+                    f"{interaction.user} ({interaction.user.id}) - {interaction_source} - "
+                    f"{interaction.command.name} {exception.status_code} {exception.detail}"
                 )
             elif isinstance(exception, app_commands.errors.CommandNotFound):
                 await reply(
                     interaction,
-                    f"Command `{exception.name}` not found.\nIt is likely that the command is not available or the cog related to this command is not enabled.",
+                    (
+                        f"Command `{exception.name}` not found.\n"
+                        "It is likely that the command is not available or the cog related to this command "
+                        "is not enabled."
+                    ),
                     ephemeral=True,
                 )
                 access_logger.info(
-                    f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{exception.name}\" 404 \"{type(exception).__name__}\""
+                    f"{interaction.user} ({interaction.user.id}) - {interaction_source} - "
+                    f"{exception.name} 404 {type(exception).__name__}"
                 )
             else:
                 await reply(interaction, "An internal error occurred.", ephemeral=True)
 
                 access_logger.error(
-                    f"{interaction.user} ({interaction.user.id}) - {f'{interaction.guild.name} ({interaction.guild.id})' if interaction.guild else 'DMs'} - \"{interaction.command.name}\" 500 \"{type(exception).__name__}\""
+                    f"{interaction.user} ({interaction.user.id}) - {interaction_source} - "
+                    f"{interaction.command.name} 500 {type(exception).__name__}"
                 )
                 logger.exception(exception)
 
@@ -286,9 +290,7 @@ class Fisher(discord.Client, Singleton):
             logger.info("Sending connection message to dev channel...")
             await self.dev_channel.send(f"{self.user.name} has connected to Discord!")
         else:
-            logger.warning(
-                "Invalid dev channel ID. Skipping sending connection message to dev channel."
-            )
+            logger.warning("Invalid dev channel ID. Skipping sending connection message to dev channel.")
 
         logger.info("Waiting for setup tasks to complete...")
 
@@ -311,9 +313,7 @@ class Fisher(discord.Client, Singleton):
         try:
             async with asyncio.timeout(10):
                 await self.wait_until_ready()
-                await self.change_presence(
-                    activity=discord.Game(choice(self.config.STATUS))
-                )
+                await self.change_presence(activity=discord.Game(choice(self.config.STATUS)))
         except TimeoutError:
             logger.warning("Task 'status_task' timed out.")
 
@@ -323,7 +323,7 @@ class Fisher(discord.Client, Singleton):
         /,
         *,
         override: bool = False,
-        guild: Optional[Snowflake] = MISSING,
+        guild: Snowflake | None = MISSING,
         guilds: Sequence[Snowflake] = MISSING,
     ) -> None:
         """Note: This is adopted from discord.ext.commands.Bot.add_cog() method."""
@@ -347,7 +347,7 @@ class Fisher(discord.Client, Singleton):
         cog = await cog._inject(self, override=override, guild=guild, guilds=guilds)
         self.__cogs[cog_name] = cog
 
-    def get_cog(self, name: str, /) -> Optional[Cog]:
+    def get_cog(self, name: str, /) -> Cog | None:
         """Note: This is adopted from discord.ext.commands.Bot.get_cog() method."""
         return self.__cogs.get(name)
 
@@ -356,9 +356,9 @@ class Fisher(discord.Client, Singleton):
         name: str,
         /,
         *,
-        guild: Optional[Snowflake] = MISSING,
+        guild: Snowflake | None = MISSING,
         guilds: Sequence[Snowflake] = MISSING,
-    ) -> Optional[Cog]:
+    ) -> Cog | None:
         """Note: This is adopted from discord.ext.commands.Bot.remove_cog() method."""
         if name not in self.__cogs:
             return None

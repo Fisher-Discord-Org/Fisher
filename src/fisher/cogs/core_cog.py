@@ -5,7 +5,7 @@ from importlib.metadata import packages_distributions
 from discord import Colour, Interaction, Locale, app_commands
 
 from ..core.exceptions import CommandArgumentError, FisherExitCommand
-from ..core.Fisher import Fisher, FisherCog, logger
+from ..core.fisher import Fisher, FisherCog, logger
 from ..utils.discord_utils import is_owner
 from ..utils.view import PaginationEmbed
 
@@ -13,7 +13,9 @@ from ..utils.view import PaginationEmbed
 class CoreCog(
     FisherCog,
     name="core",
-    description="Core cog of the bot that contains basic commands. (Note: This cog is not meant and cannot be disabled.)",
+    description=(
+        "Core cog of the bot that contains basic commands. (Note: This cog is not meant and cannot be disabled.)"
+    ),
 ):
     def __init__(self, bot: Fisher) -> None:
         super().__init__(bot, requires_db=True)
@@ -43,9 +45,7 @@ class CoreCog(
     )
     async def ping(self, interaction: Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
-        await interaction.followup.send(
-            f"Pong! Latency: {self.bot.latency * 1000:.2f}ms", ephemeral=True
-        )
+        await interaction.followup.send(f"Pong! Latency: {self.bot.latency * 1000:.2f}ms", ephemeral=True)
 
     @app_commands.command(
         name="exit",
@@ -68,7 +68,7 @@ class CoreCog(
     @app_commands.guilds(Fisher.config.DEV_GUILD_ID)
     @is_owner()
     async def exit(self, interaction: Interaction) -> None:
-        await interaction.response.send_message(f"Bye!", ephemeral=True)
+        await interaction.response.send_message("Bye!", ephemeral=True)
         raise FisherExitCommand
 
     @app_commands.command(
@@ -106,9 +106,7 @@ class CoreCog(
     @app_commands.describe(guild_id="id of the guild you want to sync the commands to")
     @app_commands.guilds(Fisher.config.DEV_GUILD_ID)
     @is_owner()
-    async def sync_command(
-        self, interaction: Interaction, guild_id: str | None = None
-    ) -> None:
+    async def sync_command(self, interaction: Interaction, guild_id: str | None = None) -> None:
         await interaction.response.defer(ephemeral=True)
         if guild_id is None:
             await self.bot.tree.sync()
@@ -123,9 +121,7 @@ class CoreCog(
         if not guild:
             raise CommandArgumentError(status_code=400, detail="Invalid guild ID.")
         await self.bot.tree.sync(guild=guild)
-        await interaction.followup.send(
-            content=f"Slash commands have been synchronized in {guild}.", ephemeral=True
-        )
+        await interaction.followup.send(content=f"Slash commands have been synchronized in {guild}.", ephemeral=True)
 
     @app_commands.command(
         name="list_cog",
@@ -189,9 +185,7 @@ class CoreCog(
         if option == "enabled":
             for cog_name, cog in self.bot.cogs.items():
                 embed.add_field(name=cog_name, value=cog.description, inline=False)
-            await interaction.followup.send(
-                embed=embed.initial_embed, view=embed, ephemeral=True
-            )
+            await interaction.followup.send(embed=embed.initial_embed, view=embed, ephemeral=True)
             return
 
         distributions_packages = self.__distributions_packages
@@ -204,10 +198,7 @@ class CoreCog(
                     cogs = [cog for cog in dir(module) if not cog.startswith("__")]
                     for cog in cogs:
                         cog_class = getattr(module, cog)
-                        if (
-                            issubclass(cog_class, FisherCog)
-                            and cog_class.__cog_name__ not in self.bot.cogs
-                        ):
+                        if issubclass(cog_class, FisherCog) and cog_class.__cog_name__ not in self.bot.cogs:
                             embed.add_field(
                                 name=cog_class.__cog_name__,
                                 value=f"""
@@ -218,16 +209,10 @@ class CoreCog(
                                 inline=False,
                             )
                 except ImportError:
-                    logger.warning(
-                        f"Skipping {package} from {dist} due to ImportError."
-                    )
-        await interaction.followup.send(
-            embed=embed.initial_embed, view=embed, ephemeral=True
-        )
+                    logger.warning(f"Skipping {package} from {dist} due to ImportError.")
+        await interaction.followup.send(embed=embed.initial_embed, view=embed, ephemeral=True)
 
-    async def _cog_autocomplete(
-        self, interaction: Interaction, current: str
-    ) -> list[app_commands.Choice]:
+    async def _cog_autocomplete(self, interaction: Interaction, current: str) -> list[app_commands.Choice]:
         distributions_packages = self.__distributions_packages
         choices = []
         for dist in distributions_packages:
@@ -237,17 +222,12 @@ class CoreCog(
                 try:
                     module = import_module(".cogs", package=package)
                 except ImportError:
-                    logger.warning(
-                        f"Skipping {package} from {dist} due to ImportError."
-                    )
+                    logger.warning(f"Skipping {package} from {dist} due to ImportError.")
                     continue
                 cogs = [cog for cog in dir(module) if not cog.startswith("__")]
                 for cog in cogs:
                     cog_class = getattr(module, cog)
-                    if (
-                        issubclass(cog_class, FisherCog)
-                        and current.lower() in cog_class.__cog_name__.lower()
-                    ):
+                    if issubclass(cog_class, FisherCog) and current.lower() in cog_class.__cog_name__.lower():
                         choices.append(
                             app_commands.Choice(
                                 name=f"{cog_class.__cog_name__} ({dist})",
@@ -294,21 +274,13 @@ class CoreCog(
     async def enable_cog(self, interaction: Interaction, cog_name: str):
         await interaction.response.defer(ephemeral=True)
         if cog_name in self.bot.cogs:
-            raise CommandArgumentError(
-                status_code=400, detail=f"Cog `{cog_name}` is already enabled."
-            )
+            raise CommandArgumentError(status_code=400, detail=f"Cog `{cog_name}` is already enabled.")
         if not await self.__load_cog(cog_name):
-            raise CommandArgumentError(
-                status_code=400, detail=f"Cog `{cog_name}` does not exist."
-            )
+            raise CommandArgumentError(status_code=400, detail=f"Cog `{cog_name}` does not exist.")
 
-        await interaction.followup.send(
-            f"Cog `{cog_name}` has been enabled.", ephemeral=True
-        )
+        await interaction.followup.send(f"Cog `{cog_name}` has been enabled.", ephemeral=True)
 
-    async def _disable_cog_autocomplete(
-        self, interaction: Interaction, current: str
-    ) -> list[app_commands.Choice]:
+    async def _disable_cog_autocomplete(self, interaction: Interaction, current: str) -> list[app_commands.Choice]:
         return [
             app_commands.Choice(name=cog_name, value=cog_name)
             for cog_name in self.bot.cogs
@@ -358,13 +330,9 @@ class CoreCog(
                 detail=f"Cog `{cog_name}` does not exist or is not enabled.",
             )
         elif cog_name == "core":
-            raise CommandArgumentError(
-                status_code=400, detail="Cog `core` cannot be disabled."
-            )
+            raise CommandArgumentError(status_code=400, detail="Cog `core` cannot be disabled.")
         await self.bot.remove_cog(cog_name)
-        await interaction.followup.send(
-            f"Cog `{cog_name}` has been disabled.", ephemeral=True
-        )
+        await interaction.followup.send(f"Cog `{cog_name}` has been disabled.", ephemeral=True)
 
         object_count = gc_collect()
         logger.info(f"Garbage collected {object_count} objects.")
@@ -422,13 +390,9 @@ class CoreCog(
         logger.info(f"Garbage collected {object_count} objects.")
 
         if not await self.__load_cog(cog_name):
-            raise CommandArgumentError(
-                status_code=400, detail=f"Cog `{cog_name}` does not exist."
-            )
+            raise CommandArgumentError(status_code=400, detail=f"Cog `{cog_name}` does not exist.")
 
-        await interaction.followup.send(
-            f"Cog `{cog_name}` has been reloaded.", ephemeral=True
-        )
+        await interaction.followup.send(f"Cog `{cog_name}` has been reloaded.", ephemeral=True)
 
     @app_commands.command(
         name="check_dist",
@@ -441,8 +405,12 @@ class CoreCog(
                     Locale.chinese: "检查分发包",
                 },
                 "description": {
-                    Locale.american_english: "Check the current distributions packages and update the mapping of distributions packages",
-                    Locale.british_english: "Check the current distributions packages and update the mapping of distributions packages",
+                    Locale.american_english: (
+                        "Check the current distributions packages and update the mapping of distributions packages"
+                    ),
+                    Locale.british_english: (
+                        "Check the current distributions packages and update the mapping of distributions packages"
+                    ),
                     Locale.chinese: "检查当前分发包并更新分发包与导入包的映射",
                 },
             }
@@ -452,9 +420,7 @@ class CoreCog(
     async def update_dist(self, interaction: Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
         self.__update_distributions_packages()
-        await interaction.followup.send(
-            "Distributions packages mapping has been updated.", ephemeral=True
-        )
+        await interaction.followup.send("Distributions packages mapping has been updated.", ephemeral=True)
 
     def __update_distributions_packages(self, prefix: str = "fisher-") -> None:
         distributions_packages = {}
@@ -476,17 +442,12 @@ class CoreCog(
                 try:
                     module = import_module(".cogs", package=package)
                 except ImportError:
-                    logger.warning(
-                        f"Skipping {package} from {distribution} due to ImportError."
-                    )
+                    logger.warning(f"Skipping {package} from {distribution} due to ImportError.")
                     continue
                 cogs = [cog for cog in dir(module) if not cog.startswith("__")]
                 for cog in cogs:
                     cog_class = getattr(module, cog)
-                    if (
-                        issubclass(cog_class, FisherCog)
-                        and cog_class.__cog_name__ == cog_name
-                    ):
+                    if issubclass(cog_class, FisherCog) and cog_class.__cog_name__ == cog_name:
                         try:
                             await self.bot.add_cog(cog_class(self.bot))
                             return True

@@ -18,17 +18,17 @@ class LogSettings(BaseSettings):
     )
 
     @property
-    def LOG_LEVEL(self) -> str:
+    def log_level(self) -> str:
         return "DEBUG" if bot_settings.DEBUG else "INFO"
 
     @property
-    def LOG_PATH(self) -> str:
+    def log_path(self) -> str:
         path = path_join(bot_settings.BASE_PATH, self.DIRECTORY)
         makedirs(path, exist_ok=True)
         return path
 
     @property
-    def LOG_FORMATTERS(self) -> dict:
+    def log_formatters(self) -> dict:
         return {
             "generic": {
                 "style": "{",
@@ -45,7 +45,7 @@ class LogSettings(BaseSettings):
         }
 
     @property
-    def LOG_HANDLERS(self) -> dict:
+    def log_handlers(self) -> dict:
         return {
             "console": {
                 "class": "logging.StreamHandler",
@@ -60,7 +60,7 @@ class LogSettings(BaseSettings):
             "file": {
                 "class": "logging.handlers.TimedRotatingFileHandler",
                 "formatter": "generic",
-                "filename": path_join(self.LOG_PATH, "access.log"),
+                "filename": path_join(self.log_path, "access.log"),
                 "encoding": "utf-8",
                 "when": "midnight",
                 "backupCount": 7,
@@ -68,7 +68,7 @@ class LogSettings(BaseSettings):
             "error_file": {
                 "class": "logging.handlers.TimedRotatingFileHandler",
                 "formatter": "generic",
-                "filename": path_join(self.LOG_PATH, "error.log"),
+                "filename": path_join(self.log_path, "error.log"),
                 "encoding": "utf-8",
                 "when": "midnight",
                 "backupCount": 7,
@@ -76,14 +76,14 @@ class LogSettings(BaseSettings):
         }
 
     @property
-    def LOG_CONFIG(self) -> dict:
+    def log_config(self) -> dict:
         return {
             "version": 1,
             "disable_existing_loggers": False,
             "root": {"level": "INFO", "handlers": ["color_console"]},
             "loggers": {
                 "Fisher": {
-                    "level": self.LOG_LEVEL,
+                    "level": self.log_level,
                     "handlers": ["error_file"],
                     "propagate": True,
                     "qualname": "Fisher",
@@ -105,5 +105,5 @@ class LogSettings(BaseSettings):
                 },
             },
             "handlers": self.LOG_HANDLERS,
-            "formatters": self.LOG_FORMATTERS,
+            "formatters": self.log_formatters,
         }
